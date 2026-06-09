@@ -20,6 +20,7 @@ type SubstituteInput = ParseSource & {
   text: string
   missing?: "error" | "empty"
   env?: Record<string, string>
+  context?: "json" | "text"
 }
 
 function source(input: ParseSource) {
@@ -82,7 +83,7 @@ export async function substitute(input: SubstituteInput) {
       })
     ).trim()
 
-    out += JSON.stringify(fileContent).slice(1, -1)
+    out += input.context === "text" ? fileContent : JSON.stringify(fileContent).slice(1, -1)
     cursor = index + token.length
   }
 

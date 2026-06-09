@@ -7,6 +7,7 @@ import { ConfigAgentV1 } from "@opencode-ai/core/v1/config/agent"
 import { configEntryNameFromPath } from "./entry-name"
 import * as ConfigMarkdown from "./markdown"
 import { ConfigParse } from "./parse"
+import { ConfigVariable } from "./variable"
 
 export async function load(dir: string) {
   const result: Record<string, ConfigAgentV1.Info> = {}
@@ -21,10 +22,33 @@ export async function load(dir: string) {
 
     const name = configEntryNameFromPath(path.relative(dir, item), ["agent/", "agents/"])
 
+    const substitutedContent = await ConfigVariable.substitute({
+      type: "path",
+      text: md.content.trim(),
+      path: item,
+      context: "text",
+      missing: "empty",
+    })
+
+    const substitutedData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(md.data)) {
+      if (typeof value === "string" && (value.includes("{file:") || value.includes("{env:"))) {
+        substitutedData[key] = await ConfigVariable.substitute({
+          type: "path",
+          text: value,
+          path: item,
+          context: "json",
+          missing: "empty",
+        })
+      } else {
+        substitutedData[key] = value
+      }
+    }
+
     const config = {
       name,
-      ...md.data,
-      prompt: md.content.trim(),
+      ...substitutedData,
+      prompt: substitutedContent,
     }
     result[config.name] = ConfigParse.schema(ConfigAgentV1.Info, config, item)
   }
@@ -42,10 +66,33 @@ export async function loadMode(dir: string) {
     const md = await ConfigMarkdown.parse(item).catch(() => undefined)
     if (!md) continue
 
+    const substitutedContent = await ConfigVariable.substitute({
+      type: "path",
+      text: md.content.trim(),
+      path: item,
+      context: "text",
+      missing: "empty",
+    })
+
+    const substitutedData: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(md.data)) {
+      if (typeof value === "string" && (value.includes("{file:") || value.includes("{env:"))) {
+        substitutedData[key] = await ConfigVariable.substitute({
+          type: "path",
+          text: value,
+          path: item,
+          context: "json",
+          missing: "empty",
+        })
+      } else {
+        substitutedData[key] = value
+      }
+    }
+
     const config = {
       name: configEntryNameFromPath(path.relative(dir, item), ["mode/", "modes/"]),
-      ...md.data,
-      prompt: md.content.trim(),
+      ...substitutedData,
+      prompt: substitutedContent,
     }
     const parsed = Schema.decodeUnknownExit(ConfigAgentV1.Info)(config, { errors: "all", propertyOrder: "original" })
     if (Exit.isSuccess(parsed)) {
