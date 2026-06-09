@@ -1,0 +1,72 @@
+{
+  "patterns": {
+    "review": {
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow"
+      },
+      "prompt_template": "You are a [domain] reviewer. Focus on identifying [review focus areas]. Provide structured feedback without making changes.",
+      "examples": ["code-reviewer", "security-auditor", "performance-reviewer"]
+    },
+    "exploration": {
+      "permission": {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "bash": "allow",
+        "edit": "deny",
+        "webfetch": "allow"
+      },
+      "prompt_template": "You are a [domain] search specialist. You excel at [search capability]. Return findings as absolute paths.",
+      "examples": ["dependency-explorer", "api-endpoint-finder"]
+    },
+    "writing": {
+      "permission": {
+        "edit": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "bash": "deny"
+      },
+      "prompt_template": "You are a [domain] writer. Create [output type] following [standards]. Focus on clarity and completeness.",
+      "examples": ["docs-writer", "changelog-generator", "readme-updater"]
+    },
+    "debugging": {
+      "permission": {
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "bash": "allow",
+        "edit": "deny",
+        "lsp": "allow"
+      },
+      "prompt_template": "You are a [domain] diagnostic specialist. Focus on identifying root causes. Use diagnostic commands only.",
+      "examples": ["crash-debugger", "performance-profiler"]
+    },
+    "orchestrator": {
+      "permission": {
+        "task": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "todowrite": "allow"
+      },
+      "prompt_template": "You are an orchestrator for [domain]. Break tasks into sub-tasks and dispatch to specialized subagents. Synthesize results.",
+      "examples": ["multi-review-orchestrator", "research-orchestrator"]
+    },
+    "full-dev": {
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow"
+      },
+      "prompt_template": "You are a [domain] developer. Write and modify code following [standards]. Test your changes.",
+      "examples": ["frontend-dev", "backend-dev", "infra-dev"]
+    }
+  }
+}
