@@ -7,7 +7,8 @@ import { Session } from "@/session/session"
 import { SessionID, MessageID } from "../session/schema"
 import { MessageV2 } from "../session/message-v2"
 import { Agent } from "../agent/agent"
-import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
+import { deriveSubagentSessionPermission, parentAgentDenyRules, parentSessionDenyRules } from "../agent/subagent-permissions"
+import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
 import { Effect, Exit, Schema, Scope } from "effect"
@@ -49,6 +50,10 @@ const BaseParameterFields = {
       "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)",
   }),
   command: Schema.optional(Schema.String).annotate({ description: "The command that triggered this task" }),
+  permission_override: Schema.optional(PermissionV1.Ruleset).annotate({
+    description:
+      "Custom permission rules to inject into the subagent session, replacing the default derived permissions. Use this to give a subagent the permission profile of a different agent for testing purposes. Parent mandatory constraints (edit-deny forwarding, external_directory) are still enforced.",
+  }),
 }
 
 const BaseParameters = Schema.Struct(BaseParameterFields)
@@ -149,16 +154,27 @@ export const TaskTool = Tool.define(
           parentID: ctx.sessionID,
           title: params.description + ` (@${next.name} subagent)`,
           agent: next.name,
-          permission: [
-            ...childPermission,
-            ...childToolDenies.filter(
-              (deny) =>
-                !childPermission.some(
-                  (rule) =>
-                    rule.permission === deny.permission && rule.pattern === deny.pattern && rule.action === deny.action,
+          permission: params.permission_override
+            ? [
+                ...parentAgentDenyRules(parentAgent),
+                ...parentSessionDenyRules(parent.permission ?? []),
+                ...params.permission_override,
+                ...(cfg.experimental?.primary_tools?.map((item) => ({
+                  pattern: "*",
+                  action: "allow" as const,
+                  permission: item,
+                })) ?? []),
+              ]
+            : [
+                ...childPermission,
+                ...childToolDenies.filter(
+                  (deny) =>
+                    !childPermission.some(
+                      (rule) =>
+                        rule.permission === deny.permission && rule.pattern === deny.pattern && rule.action === deny.action,
+                    ),
                 ),
-            ),
-          ],
+              ],
         }))
 
       const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
