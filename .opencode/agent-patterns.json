@@ -43,7 +43,12 @@
         "lsp": "allow"
       },
       "prompt_template": "You are a [domain] diagnostic specialist. Focus on identifying root causes. Use diagnostic commands only.",
-      "examples": ["crash-debugger", "performance-profiler"]
+      "examples": [
+        "crash-debugger",
+        "performance-profiler",
+        "perf-analyzer"
+      ],
+      "notes": "Performance analysis variant uses bash: deny by default with explicit allowlist of read-only diagnostic commands (time, top -b, iostat, vmstat, perf, strace, valgrind, git read-only commands, text processing). LSP enabled for call hierarchy tracing. Output format includes severity-classified findings (CRITICAL/HIGH/MEDIUM/LOW) with optimization roadmap."
     },
     "orchestrator": {
       "permission": {
@@ -66,7 +71,29 @@
         "webfetch": "allow"
       },
       "prompt_template": "You are a [domain] developer. Write and modify code following [standards]. Test your changes.",
-      "examples": ["frontend-dev", "backend-dev", "infra-dev"]
+      "examples": [
+        "frontend-dev",
+        "backend-dev",
+        "infra-dev"
+      ]
+    },
+    "dep-analysis": {
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "question": "deny",
+        "todowrite": "deny",
+        "task": "deny"
+      },
+      "prompt_template": "You are a cross-ecosystem dependency analysis specialist. Scan dependency manifests, lockfiles, and source code to produce a structured dependency health report covering outdated packages, security vulnerabilities, unused dependencies, and version conflicts.",
+      "examples": [
+        "dep-analyzer"
+      ],
+      "notes": "Review/exploration hybrid pattern for dependency health analysis. Combines review pattern (read-only file analysis) with exploration pattern (webfetch for external data). Supports npm, pip, cargo, go, ruby, php, java, .NET ecosystems. Grep patterns include regex-escaped import detection per ecosystem with Python name normalization (_ vs -). webfetch uses JSON API endpoints for registry queries and GitHub Advisory Database for security scans, capped at 20 calls per analysis. Steps set to 40 to accommodate multi-ecosystem projects with many dependencies. Output format includes severity-classified tables with confidence levels for unused dep detection."
     }
   }
 }
