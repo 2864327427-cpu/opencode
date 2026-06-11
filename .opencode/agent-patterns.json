@@ -94,6 +94,31 @@
         "dep-analyzer"
       ],
       "notes": "Review/exploration hybrid pattern for dependency health analysis. Combines review pattern (read-only file analysis) with exploration pattern (webfetch for external data). Supports npm, pip, cargo, go, ruby, php, java, .NET ecosystems. Grep patterns include regex-escaped import detection per ecosystem with Python name normalization (_ vs -). webfetch uses JSON API endpoints for registry queries and GitHub Advisory Database for security scans, capped at 20 calls per analysis. Steps set to 40 to accommodate multi-ecosystem projects with many dependencies. Output format includes severity-classified tables with confidence levels for unused dep detection."
+    },
+    "multi-agent-coordinator": {
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "todowrite": "allow",
+        "task": {
+          "*-reviewer": "allow",
+          "*-analyzer": "allow",
+          "*-auditor": "allow",
+          "*-explorer": "allow",
+          "explore": "allow",
+          "*": "deny"
+        },
+        "question": "allow",
+        "webfetch": "deny"
+      },
+      "prompt_template": "You are a multi-agent coordination specialist. Decompose complex tasks into 2-6 independent sub-tasks, dispatch to specialized subagents via task tool (glob-restricted to *-reviewer, *-analyzer, *-auditor, *-explorer, explore), track progress with todowrite, and synthesize results into a unified report with cross-cutting concern analysis.",
+      "examples": [
+        "multi-agent-coordinator"
+      ],
+      "notes": "Orchestration pattern for multi-subagent coordination (primary mode). Task permission uses suffix-glob patterns (*-reviewer, *-analyzer, *-auditor, *-explorer) plus explicit 'explore' to restrict dispatchable subagent types — suffix globs match agents like python-security-reviewer, perf-analyzer, effect-code-reviewer. Steps set to 30 to accommodate parallel dispatch (max 4 simultaneous) and result synthesis. Output format includes structured coordination report with summary, sub-task table, detailed findings, cross-cutting concerns, priority-ordered recommendations, and execution metadata. Question tool allowed for primary mode but constrained to genuine ambiguity only."
     }
   }
 }
