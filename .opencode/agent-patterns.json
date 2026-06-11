@@ -74,8 +74,10 @@
       "examples": [
         "frontend-dev",
         "backend-dev",
-        "infra-dev"
-      ]
+        "infra-dev",
+        "react-component-dev"
+      ],
+      "notes": "Frontend component variant (react-component-dev) adds framework-adaptive discovery (React/SolidJS/Vue/Svelte), edit restrictions for *.env files, bash denylist for destructive commands (rm -rf, git push, git reset --hard, sudo, chmod, chown), and a 7-step workflow: discover → study → decide (extend vs create) → implement → style → test → verify. Steps set to 35 to accommodate reading existing conventions, writing component + styles + tests, and running verification. Webfetch enabled for framework documentation lookups."
     },
     "dep-analysis": {
       "permission": {
