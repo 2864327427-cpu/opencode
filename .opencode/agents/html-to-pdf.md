@@ -27,7 +27,7 @@ steps: 50
 
 ## 品牌规范
 
-- **公司 Logo**：`/home/lyb/html转pdf的agent/logo-dark@2x.webp`（固定路径）
+- **公司 Logo**：环境变量 `$HTML_TO_PDF_LOGO`，回退路径 `./logo.png`（当前目录下的 logo.png）
 - **页眉**：深色背景 `#0d1117`，居中 Logo，高度 30px，高度 44px
 - **页脚**：深色背景 `#0d1117`，居中 Logo，高度 30px，高度 44px
 - **页面尺寸**：1280x720（16:9 幻灯片默认），用户可指定 A4
@@ -50,9 +50,14 @@ Header/Footer HTML 模板：
 #### 1.1 系统库（Chrome 依赖）
 
 ```bash
-# 检查 chrome-headless-shell 是否可运行
-CHROME_PATH="$HOME/.cache/puppeteer/chrome-headless-shell/linux-149.0.7827.22/chrome-headless-shell-linux64/chrome-headless-shell"
-ldd "$CHROME_PATH" 2>/dev/null | grep "not found"
+# 动态检测 chrome-headless-shell（扫描已安装的最新版本）
+CHROME_PATH=$(find "$HOME/.cache/puppeteer/chrome-headless-shell" -name "chrome-headless-shell" -type f 2>/dev/null | sort -V | tail -1)
+if [ -z "$CHROME_PATH" ]; then
+  echo "NOT FOUND - will install in Step 1.2"
+else
+  echo "Found: $CHROME_PATH"
+  ldd "$CHROME_PATH" 2>/dev/null | grep "not found"
+fi
 
 # 若有缺失库（libnspr4, libnss3, libasound2），下载并解压
 mkdir -p /tmp/chrome-libs
@@ -68,16 +73,24 @@ export LD_LIBRARY_PATH=/tmp/chrome-libs/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PAT
 #### 1.2 Chrome 浏览器
 
 ```bash
-# 检查 chrome-headless-shell 可执行文件是否存在
-ls "$CHROME_PATH" 2>/dev/null || echo "NOT FOUND"
+# 若 chrome-headless-shell 不存在，用 puppeteer-core + adm-zip 手动安装
+if [ -z "$CHROME_PATH" ]; then
+  mkdir -p /tmp/pdf-gen && cd /tmp/pdf-gen
+  PUPPETEER_SKIP_DOWNLOAD=true npm install puppeteer-core pdf-lib adm-zip
 
-# 若不存在，用 puppeteer-core + adm-zip 手动安装
-mkdir -p /tmp/pdf-gen && cd /tmp/pdf-gen
-PUPPETEER_SKIP_DOWNLOAD=true npm install puppeteer-core pdf-lib adm-zip
-# 下载 chrome-headless-shell zip
-node -e "require('https').get('https://storage.googleapis.com/chrome-for-testing-public/149.0.7827.22/linux64/chrome-headless-shell-linux64.zip',{timeout:120000},r=>{const f=require('fs').createWriteStream('/tmp/chrome-hs.zip');r.pipe(f);f.on('finish',()=>f.close())})"
-# 用 adm-zip 解压（系统可能没有 unzip）
-node -e "new (require('/tmp/pdf-gen/node_modules/adm-zip'))('/tmp/chrome-hs.zip').extractAllTo('$HOME/.cache/puppeteer/chrome-headless-shell/linux-149.0.7827.22',true);require('fs').chmodSync('$CHROME_PATH',0o755)"
+  # 查询最新稳定版 Chrome 版本号
+  CHROME_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).channels.Stable.version))")
+  echo "Installing Chrome $CHROME_VERSION"
+
+  # 下载 chrome-headless-shell zip
+  node -e "require('https').get('https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-headless-shell-linux64.zip',{timeout:120000},r=>{const f=require('fs').createWriteStream('/tmp/chrome-hs.zip');r.pipe(f);f.on('finish',()=>f.close())})"
+  # 用 adm-zip 解压
+  INSTALL_DIR="$HOME/.cache/puppeteer/chrome-headless-shell/linux-${CHROME_VERSION}"
+  node -e "new (require('/tmp/pdf-gen/node_modules/adm-zip'))('/tmp/chrome-hs.zip').extractAllTo('${INSTALL_DIR}',true);require('fs').chmodSync('${INSTALL_DIR}/chrome-headless-shell-linux64/chrome-headless-shell',0o755)"
+
+  # 重新检测
+  CHROME_PATH=$(find "$HOME/.cache/puppeteer/chrome-headless-shell" -name "chrome-headless-shell" -type f 2>/dev/null | sort -V | tail -1)
+fi
 ```
 
 #### 1.3 中文字体（CJK）
@@ -116,23 +129,28 @@ fi
 ### Step 2：图片预处理
 
 ```bash
-# 检测 Logo 格式
-file "/home/lyb/html转pdf的agent/logo-dark@2x.webp"
-
-# 若为 WebP，chrome-headless-shell 可能无法解码
-# 方案：用 chrome 本身截图转换，或用 file:// 协议加载（本地文件 Chrome 可解码 WebP）
-# 生成 base64 data URI 时需确保格式兼容
+# 解析 Logo 路径（优先环境变量，回退当前目录 logo.png）
+LOGO_PATH="${HTML_TO_PDF_LOGO:-./logo.png}"
+if [ ! -f "$LOGO_PATH" ]; then
+  echo "Logo not found at $LOGO_PATH"
+  echo "Set HTML_TO_PDF_LOGO env var or place logo.png in current directory"
+  exit 1
+fi
+file "$LOGO_PATH"
 ```
 
 将 Logo 转为 base64 data URI：
 ```js
 const fs = require('fs');
-const logoPath = '/home/lyb/html转pdf的agent/logo-dark@2x.webp';
+const path = require('path');
+const logoPath = process.env.HTML_TO_PDF_LOGO || path.resolve('./logo.png');
+const ext = path.extname(logoPath).toLowerCase().replace('.', '');
+const mimeType = ext === 'svg' ? 'svg+xml' : ext === 'jpg' ? 'jpeg' : ext;
 const logoBase64 = fs.readFileSync(logoPath).toString('base64');
-const logoDataUri = 'data:image/webp;base64,' + logoBase64;
+const logoDataUri = `data:image/${mimeType};base64,${logoBase64}`;
 ```
 
-> 若 WebP data URI 在 PDF 中不显示，改用 `file://` 绝对路径：`file:///home/lyb/html转pdf的agent/logo-dark@2x.webp`
+> 若 data URI 在 PDF 中不显示，改用 `file://` 绝对路径：`file://${path.resolve(logoPath)}`
 
 ### Step 3：HTML 结构分析
 
@@ -153,8 +171,12 @@ const isSlideshow = slideCount > 1;
 ```js
 const puppeteer = require('puppeteer-core');
 const { PDFDocument } = require('pdf-lib');
+const { execSync } = require('child_process');
+const path = require('path');
 
-const CHROME_PATH = process.env.HOME + '/.cache/puppeteer/chrome-headless-shell/linux-149.0.7827.22/chrome-headless-shell-linux64/chrome-headless-shell';
+// 动态检测 Chrome 路径（使用 Step 1 中已设置的 CHROME_PATH 环境变量，或重新扫描）
+const CHROME_PATH = process.env.CHROME_PATH ||
+  execSync('find "$HOME/.cache/puppeteer/chrome-headless-shell" -name "chrome-headless-shell" -type f 2>/dev/null | sort -V | tail -1', { encoding: 'utf8' }).trim();
 const LIB_PATH = '/tmp/chrome-libs/usr/lib/x86_64-linux-gnu';
 
 (async () => {
