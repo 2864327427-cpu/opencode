@@ -36,7 +36,7 @@ export function parentSessionDenyRules(parentSessionPermission: PermissionV1.Rul
  */
 export function deriveSubagentSessionPermission(input: {
   parentSessionPermission: PermissionV1.Ruleset
-  parentAgent: Agent.Info | undefined
+  parentAgent?: Agent.Info
   subagent: Agent.Info
 }): PermissionV1.Ruleset {
   const canTask = input.subagent.permission.some((rule) => rule.permission === "task")
